@@ -1,0 +1,27 @@
+---
+title: "R Markdown & Plotly"
+author: "L. Boshuizen"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r message=F}
+library(units)
+library(ggplot2)
+library(plotly)
+```
+
+```{r}
+gg <- readRDS('./data/247.rds')
+gg <- drop_units(gg)
+```
+
+```{r message=F}
+p <- ggplot(data=gg, aes(x=dt,y=speed,color=group)) + geom_point() + geom_smooth() + labs(colour = "Group", x="Date", y="Speed (km/hr)", title="Speed of team 247 during RR2019" )
+```
+
+```{r}
+ggplotly(p)
+```

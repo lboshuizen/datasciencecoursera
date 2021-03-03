@@ -7,3 +7,5 @@
 ## Developing Data Products
 
 [Week 2, R Markdown and Leaflet](https://lboshuizen.github.io/datasciencecoursera/route2019.nb.html)
+
+[Week 3, R Markdown & Plotly](https://lboshuizen.github.io/datasciencecoursera/plotly.html)
