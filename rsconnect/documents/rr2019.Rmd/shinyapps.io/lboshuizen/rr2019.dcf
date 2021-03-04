@@ -1,0 +1,12 @@
+name: rr2019
+title: rr2019
+username:
+account: lboshuizen
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3732372
+bundleId: 4297920
+url: https://lboshuizen.shinyapps.io/rr2019/
+when: 1614821548.87046
+asMultiple: FALSE
+asStatic: FALSE

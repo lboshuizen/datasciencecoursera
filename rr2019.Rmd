@@ -2,58 +2,142 @@
 title: "Roparun 2019"
 author: "L. Boshuizen"
 date: "3/3/2021"
-output: html_document
+output: flexdashboard::flex_dashboard
 runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+# visit: https://lboshuizen.shinyapps.io/rr2019/
+
 ```
 
-This R Markdown document is made interactive using Shiny. Unlike the more traditional workflow of creating static reports, you can now create documents that allow your readers to change the assumptions underlying your analysis and see the results immediately. 
+```{r global, include=FALSE}
+library(plotly)
+library(lubridate)
+library(jsonlite)
+library(dplyr)
+library(sf)
+library(leaflet)
+library(ggplot2)
+library(ggthemes)
+library(scales)
 
-To learn more, see [Interactive Documents](http://rmarkdown.rstudio.com/authoring_shiny.html).
+crs <- "+proj=longlat +datum=WGS84"
 
-## Inputs and Outputs
+teams <- fromJSON("./data/teams.json", flatten=TRUE)
+positions <- fromJSON("./data/positions.json", flatten=TRUE)
 
-You can embed Shiny inputs and outputs in your document. Outputs are automatically updated whenever inputs change.  This demonstrates how a standard R plot can be made interactive by wrapping it in the Shiny `renderPlot` function. The `selectInput` and `sliderInput` functions create the input widgets used to drive the plot.
+teams$start <- as_datetime(teams$start)
+positions$passed <- as_datetime(positions$passed)
+
+markers <- positions %>% group_by(position) %>% tally() %>% ungroup() %>% filter(n > 80)
+positions <- positions[ positions$position %in% markers$position, ] %>% mutate( position=position/10)
+
+positions <- positions[order(positions$position),] %>% group_by(teamId) %>% mutate(duration = as.numeric(as.duration(passed - lag(passed)),"hour"), length = position-lag(position), speed=length/duration) %>% ungroup() %>% filter( speed < 25 & speed > 3 )
+
+steps <- st_read('./data/data.kml',layer = '100m Steps', quiet=T)
+steps <- st_transform(steps,crs)
+route <- st_read('./data/rpl-19.kml', , quiet=T)
+route <- st_transform(route,st_crs(steps))
+
+route_b <- st_buffer(route,0.0005)
+
+pal = economist_pal()(16)
+pal_fill = economist_pal(fill=T)(16)
+
+style_plot <- function(p){
+  p + theme_minimal() # + scale_color_manual(values = pal) + scale_fill_manual(values = pal)
+}
+
+l <- min(teams$speed)
+h <- max(teams$speed)
+
+```
+
+Column {.sidebar}
+-----------------
 
 ```{r eruptions, echo=FALSE}
 inputPanel(
-  selectInput("n_breaks", label = "Number of bins:",
-              choices = c(10, 20, 35, 50), selected = 20),
-  
-  sliderInput("bw_adjust", label = "Bandwidth adjustment:",
-              min = 0.2, max = 2, value = 1, step = 0.2)
+  h3("Team filters"),
+  selectInput("route", label = "Route:",
+              choices = c("Paris" = "P", "Hamburg" = "H"), selected = "P"),
+  sliderInput("expected", label = "Expected average speed:", min = l, max = h, value = c(l,h), step = 0.5)
 )
+```
 
-renderPlot({
-  hist(faithful$eruptions, probability = TRUE, breaks = as.numeric(input$n_breaks),
-       xlab = "Duration (minutes)", main = "Geyser eruption duration")
-  
-  dens <- density(faithful$eruptions, adjust = input$bw_adjust)
-  lines(dens, col = "blue")
+```{r echo=F}
+teams_f <- reactive({
+  teams %>% filter( route==input$route & speed >= input$expected[1] & speed <= input$expected[2]  )
 })
 ```
 
-## Embedded Application
+### Usage
 
-It's also possible to embed an entire Shiny application within an R Markdown document using the `shinyAppDir` function. This example embeds a Shiny application located in another directory:
+Each team registers upfront with, besides admin details, 2 attributes:
 
-```{r tabsets, echo=FALSE}
-shinyAppDir(
-  system.file("examples/06_tabsets", package = "shiny"),
-  options = list(
-    width = "100%", height = 550
-  )
-)
+1. Route to take: either Paris or Hamburg.
+2. Expected avarage speed.
+
+You can filter teams these 2 parameters:
+
+1. Route
+2. Expected avarage speed
+
+### About
+
+The Roparun is a relay race of over 500 kilometres from Paris and Bremen to Rotterdam, where people in teams, take part in an athletic event to raise money for people with cancer. It’s also called an adventure for life. 
+
+This is also clear from the motto, which for years has been: _‘Adding life to days, when days often can’t be added to life’._
+
+More info: [www.roparun.nl](https://roparun.nl/en/over-roparun/)
+
+_notes:_ 
+
+* _starting point in Germany was Hamburg in 2019_
+* due to CV-19 there are no races in 2020 and 2021
+
+Column
+---------------
+
+```{r echo=F}
+renderPlotly({
+  df <- teams_f()
+  p <- ggplot(data=df,aes(x=speed)) + geom_histogram(fill=pal[1], bins=25) + labs(title="Team expected average speed", x="Speed (km/h)", y="Count")
+  p <- style_plot(p) + xlim(10.5,15.5)
+  ggplotly(p)
+})
 ```
 
-Note the use of the `height` parameter to determine how much vertical space the embedded application should occupy.
+```{r echo=F}
+renderPlotly({
+  df <- teams_f() #teams[ teams$route == input$route,]
+  p <- ggplot(data=df,aes(x=start, color=speed)) + geom_histogram(fill=pal[1]) + labs(title="Starting times of teams", x="Time", y="Count") + scale_x_datetime(breaks = date_breaks("30 min"),labels = date_format("%H:%M"))
+  p <- style_plot(p)
+  ggplotly(p)
+})
+```
 
-You can also use the `shinyApp` function to define an application inline rather then in an external directory.
+```{r echo=F}
+renderPlotly({
+  df <- teams_f()
+  df <- positions[ positions$teamId %in% df$teamId, ] %>% group_by(position) %>% summarise(avg=mean(speed))
+  p <- ggplot(data=df,aes(x=position,y=avg)) + geom_point(colour=pal[2]) + geom_smooth(color = pal[1], fill=pal_fill[1]) + labs(title="Avg speed at checkpoints", x="Position (km)", y="Speed (km/h)")
+  p <- style_plot(p)
+  ggplotly(p)
+})
 
-In all of R code chunks above the `echo = FALSE` attribute is used. This is to prevent the R code within the chunk from rendering in the document alongside the Shiny components.
+```
 
+```{r echo=F}
+renderPlotly({
+  df <- teams_f()
+  df <- positions[ positions$teamId %in% df$teamId, ] %>% group_by(teamId) %>% summarise(finish=max(passed))
+  p <- ggplot(data=df,aes(x=finish)) + geom_histogram(fill=pal[1]) + labs(title="Finish moments", x="Time", y="Count") + scale_x_datetime(breaks = date_breaks("30 min"),labels = date_format("%H:%M"))
+  p <- style_plot(p)
+  ggplotly(p)
+})
 
-
+```
