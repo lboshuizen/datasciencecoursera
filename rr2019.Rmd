@@ -18,39 +18,37 @@ library(plotly)
 library(lubridate)
 library(jsonlite)
 library(dplyr)
-library(sf)
 library(leaflet)
 library(ggplot2)
 library(ggthemes)
 library(scales)
 
-crs <- "+proj=longlat +datum=WGS84"
-
+# load data
 teams <- fromJSON("./data/teams.json", flatten=TRUE)
+
+# only 2 contenders from Almelo NL, dropped
+teams <- teams[teams$route != "A",]
 positions <- fromJSON("./data/positions.json", flatten=TRUE)
 
+# data conversions
 teams$start <- as_datetime(teams$start)
 positions$passed <- as_datetime(positions$passed)
 
+# filter only official checkpoints. Teams are allowed to send intermediate checkpoints using text-messages. The freq is low and adds to much noise to be meaningfull.
 markers <- positions %>% group_by(position) %>% tally() %>% ungroup() %>% filter(n > 80)
 positions <- positions[ positions$position %in% markers$position, ] %>% mutate( position=position/10)
 
+# calculate average speed between checkpoints
 positions <- positions[order(positions$position),] %>% group_by(teamId) %>% mutate(duration = as.numeric(as.duration(passed - lag(passed)),"hour"), length = position-lag(position), speed=length/duration) %>% ungroup() %>% filter( speed < 25 & speed > 3 )
-
-steps <- st_read('./data/data.kml',layer = '100m Steps', quiet=T)
-steps <- st_transform(steps,crs)
-route <- st_read('./data/rpl-19.kml', , quiet=T)
-route <- st_transform(route,st_crs(steps))
-
-route_b <- st_buffer(route,0.0005)
 
 pal = economist_pal()(16)
 pal_fill = economist_pal(fill=T)(16)
 
 style_plot <- function(p){
-  p + theme_minimal() # + scale_color_manual(values = pal) + scale_fill_manual(values = pal)
+  p + theme_minimal()
 }
 
+# min & max speed values
 l <- min(teams$speed)
 h <- max(teams$speed)
 
@@ -79,7 +77,7 @@ teams_f <- reactive({
 Each team registers upfront with, besides admin details, 2 attributes:
 
 1. Route to take: either Paris or Hamburg.
-2. Expected avarage speed.
+2. Expected average speed.
 
 You can filter teams these 2 parameters:
 
@@ -106,7 +104,7 @@ Column
 renderPlotly({
   df <- teams_f()
   p <- ggplot(data=df,aes(x=speed)) + geom_histogram(fill=pal[1], bins=25) + labs(title="Team expected average speed", x="Speed (km/h)", y="Count")
-  p <- style_plot(p) + xlim(10.5,15.5)
+  p <- style_plot(p)
   ggplotly(p)
 })
 ```

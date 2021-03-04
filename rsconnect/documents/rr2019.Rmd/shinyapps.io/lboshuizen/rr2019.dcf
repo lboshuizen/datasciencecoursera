@@ -5,8 +5,8 @@ account: lboshuizen
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 3732372
-bundleId: 4297920
+bundleId: 4297979
 url: https://lboshuizen.shinyapps.io/rr2019/
-when: 1614821548.87046
+when: 1614822627.92184
 asMultiple: FALSE
 asStatic: FALSE
