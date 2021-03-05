@@ -1,10 +1,15 @@
-# Coursera Prediction Assignment Writeup
+# Coursera Data Science Capstone
 
-An R notebook with 4 trained models
+## links:
 
-- RF
-- GBM
-- LDA
-- Ensemble of the 3 above
+### docs
 
-A [knitted html document](https://lboshuizen.github.io/datasciencecoursera/assigment.nb.html) of the notebook is viewable on [github-pages](https://lboshuizen.github.io/datasciencecoursera/assigment.nb.html)
+[NLP Wikipedia](https://en.wikipedia.org/wiki/Natural_language_processing)
+
+[Text mining in R](http://www.jstatsoft.org/v25/i05/)
+
+[NLP CRAN Task View](http://cran.r-project.org/web/views/NaturalLanguageProcessing.html)
+
+### data
+
+[source of dataset](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip)
